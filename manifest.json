@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Stepper Sidebar",
+  "version": "0.1.0",
+  "description": "시연 순서대로 현재 탭을 이동시키는 사이드 패널",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel", "tabs", "storage", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "src/panel/panel.html"
+  },
+  "action": {
+    "default_title": "Chrome Stepper Sidebar 열기"
+  },
+  "commands": {
+    "next-step": {
+      "suggested_key": { "default": "Alt+Shift+Right" },
+      "description": "다음 단계로 이동"
+    },
+    "prev-step": {
+      "suggested_key": { "default": "Alt+Shift+Left" },
+      "description": "이전 단계로 이동"
+    }
+  }
+}

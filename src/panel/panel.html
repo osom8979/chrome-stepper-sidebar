@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chrome Stepper Sidebar</title>
+    <link rel="stylesheet" href="panel.css" />
+    <script type="module" src="panel.js"></script>
+  </head>
+  <body data-mode="play">
+    <header class="bar">
+      <select id="scenario" class="scenario" title="시나리오"></select>
+      <span id="counter" class="counter"></span>
+      <button id="edit" class="icon-btn" type="button" title="이 시나리오 편집">✎</button>
+      <details id="menu" class="menu">
+        <summary class="icon-btn" title="시나리오 관리">⋯</summary>
+        <div class="menu__list">
+          <button type="button" data-action="new">새 시나리오</button>
+          <button type="button" data-action="duplicate" data-needs-active>복제</button>
+          <hr />
+          <button type="button" data-action="import">Markdown 가져오기</button>
+          <button type="button" data-action="export" data-needs-active>이 시나리오 내보내기 (.md)</button>
+          <button type="button" data-action="exportAll" data-needs-active>전체 내보내기 (.md)</button>
+          <button type="button" data-action="seed">예시 다시 넣기</button>
+          <hr />
+          <button type="button" data-action="remove" data-needs-active class="danger">이 시나리오 삭제</button>
+        </div>
+      </details>
+    </header>
+
+    <div id="notice" class="banner" hidden></div>
+
+    <main id="view" class="view"></main>
+  </body>
+</html>
