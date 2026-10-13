@@ -35,11 +35,15 @@ async function compiledActive() {
   return scenario ? compile(scenario) : null
 }
 
-/** 패널이 보낸 메시지는 그 패널의 창, 단축키는 마지막으로 포커스된 창의 활성 탭. */
+/**
+ * 패널이 보낸 메시지는 그 패널의 창, 단축키는 마지막으로 포커스된 창의 활성 탭.
+ * 패널이 알아낸 창 id 로 못 찾으면(창이 닫혔거나 브라우저가 패널 자체를 창으로 본 경우)
+ * 마지막으로 포커스된 창으로 대신한다.
+ */
 async function targetTab(windowId) {
-  const query = windowId ? { active: true, windowId } : { active: true, lastFocusedWindow: true }
-  const [tab] = await api.tabs.query(query)
-  return tab ?? null
+  const [tab] = windowId ? await api.tabs.query({ active: true, windowId }) : []
+  const [focused] = tab ? [tab] : await api.tabs.query({ active: true, lastFocusedWindow: true })
+  return focused ?? null
 }
 
 // ---- 탭 URL → 현재 단계 -------------------------------------------------
@@ -77,7 +81,9 @@ async function goto(stepId, windowId) {
   const compiled = await compiledActive()
   const step = compiled?.steps.find((candidate) => candidate.id === stepId)
   const tab = await targetTab(windowId)
-  if (!step?.url || !tab?.id) return
+  if (!step) throw new Error(`단계를 찾지 못했습니다: ${stepId}`)
+  if (!step.url) throw new Error(`URL 이 올바르지 않습니다: ${step.title}`)
+  if (!tab?.id) throw new Error('이동시킬 탭을 찾지 못했습니다')
   // 이동 전에 기록해 두면 같은 URL 을 쓰는 단계끼리도 구분된다 (matchStep 의 preferId).
   await setProgress({ currentId: step.id, offScript: false })
   await navigate(tab, step.url, step.navigation)
@@ -100,7 +106,8 @@ const HANDLERS = {
   // 편집 중인 단계를 진행 위치와 상관없이 열어 본다.
   open: async (msg) => {
     const tab = await targetTab(msg.windowId)
-    if (tab?.id) await navigate(tab, msg.url, msg.navigation)
+    if (!tab?.id) throw new Error('이동시킬 탭을 찾지 못했습니다')
+    await navigate(tab, msg.url, msg.navigation)
   },
   sync: async (msg) => syncTab(await targetTab(msg.windowId)),
 }

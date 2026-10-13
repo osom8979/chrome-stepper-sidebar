@@ -20,7 +20,17 @@ const els = {
 }
 
 const windowId = (await api.windows.getCurrent()).id
-const send = (message) => api.runtime.sendMessage({ ...message, windowId })
+/** background 에 보내고, 실패하면 배너로 알린다. 조용히 삼키면 왜 안 움직이는지 알 수 없다. */
+async function send(message) {
+  let response
+  try {
+    response = await api.runtime.sendMessage({ ...message, windowId })
+  } catch (e) {
+    notify(['background 에 연결하지 못했습니다. 확장 관리 화면에서 이 확장을 새로고침하세요.', String(e)], 'error')
+    return
+  }
+  if (response && !response.ok) notify([`${message.type} 실패`, response.error], 'error')
+}
 const currentTab = async () => (await api.tabs.query({ active: true, windowId }))[0] ?? null
 
 let mode = 'play'
