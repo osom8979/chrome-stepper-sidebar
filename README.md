@@ -15,7 +15,7 @@ Stepper sidebar for Chrome extensions
 Firefox 는 Chrome 의 `sidePanel` 과 service worker 백그라운드가 없어서 매니페스트가 다릅니다. 소스는 같고 `manifest.json` 만 바꾼 패키지를 스크립트로 만듭니다.
 
 ```sh
-python3 scripts/build-firefox.py
+python3 scripts/build.py
 ```
 
 1. `about:debugging#/runtime/this-firefox` 를 열고 **임시 부가 기능 로드** 를 누릅니다.
@@ -25,6 +25,39 @@ python3 scripts/build-firefox.py
 Firefox 에서는 사이트 접근 권한을 설치 때 묻습니다. 거부했거나 임시 로드에서 빠졌으면 **spa** 이동이 조용히 **reload** 로 대신되니, `about:addons` 의 이 확장 → **권한** 탭에서 "모든 웹사이트의 데이터 접근" 을 켭니다. 단축키는 `about:addons` 오른쪽 위 톱니 → **확장 단축키 관리** 에서 바꿉니다.
 
 처음 설치할 때 `seed.md` 의 예시 시나리오가 한 번 들어갑니다.
+
+## 스토어 배포
+
+```sh
+python3 scripts/build.py
+```
+
+`dist/` 에 두 브라우저의 zip 이 생깁니다. 저장소에서 `manifest.json`, `icons/*.png`, `seed.md`, `src/` 만 담고 문서와 스크립트는 뺍니다.
+
+**Chrome 웹 스토어**
+
+1. [개발자 대시보드](https://chrome.google.com/webstore/devconsole) 에 로그인하고 일회성 등록비(5달러)를 냅니다. 계정 이메일은 나중에 바꿀 수 없습니다.
+2. **새 항목** 에 `dist/chrome-stepper-sidebar-chrome-<버전>.zip` 을 올립니다.
+3. **스토어 등록정보**: 설명, 카테고리, 아이콘(`icons/icon-128.png`), 스크린샷(1280x800 또는 640x400, 한 장 이상)을 채웁니다. 스크린샷은 저장소에 없으니 패널을 연 화면을 직접 찍습니다.
+4. **개인정보 보호 관행**: 단일 목적("시연 단계 순서대로 현재 탭을 이동")을 적고 권한마다 이유를 씁니다.
+
+   | 권한 | 이유 |
+   |---|---|
+   | `tabs` | 현재 탭 URL 로 지금 단계를 판정 |
+   | `storage` | 시나리오와 진행 위치 저장 |
+   | `scripting` | spa 이동 때 페이지에 `history.pushState` 를 실행 |
+   | 호스트 권한 | 어느 사이트든 시연 대상이 될 수 있음 |
+
+   데이터를 외부로 보내지 않습니다. 원격 코드도 없습니다.
+5. **배포**: 시연용이면 **비공개**(지정한 테스터만) 나 **미등록**(링크를 아는 사람만) 을 고릅니다.
+
+새 개발자, 새 확장, 모든 http/https 호스트 권한은 심사를 길게 만듭니다. 대상 사이트가 정해져 있으면 `host_permissions` 를 그 주소로 좁히는 편이 빠릅니다.
+
+**Firefox (addons.mozilla.org)**
+
+[개발자 허브](https://addons.mozilla.org/developers/) 에 `dist/chrome-stepper-sidebar-firefox-<버전>.zip` 을 올립니다. 등록비는 없습니다. 스토어에 싣지 않고 직접 배포할 때도 서명은 받아야 하며, "직접 배포" 를 고르면 서명된 `.xpi` 를 내려받습니다. 매니페스트의 `browser_specific_settings.gecko.id` 가 그 ID 로 고정됩니다.
+
+버전을 올릴 때는 `manifest.json` 의 `version` 만 고치면 두 패키지 이름과 Firefox 매니페스트에 같이 반영됩니다.
 
 ## 쓰는 법
 
@@ -114,8 +147,11 @@ Firefox 에서는 사이트 접근 권한을 설치 때 묻습니다. 거부했�
 chrome-stepper-sidebar/
   manifest.json            MV3 선언 (권한, 사이드 패널, 전역 단축키). Chrome 용이자 원본
   seed.md                  처음 설치할 때 넣는 예시 시나리오
+  icons/
+    icon.svg               아이콘 원본. PNG 는 scripts/build.py --icons 로 다시 그린다 (inkscape)
+    icon-{16,48,128}.png   매니페스트와 스토어가 쓰는 아이콘
   scripts/
-    build-firefox.py       manifest.json 을 Firefox 형태로 바꿔 dist/firefox/ 와 zip 을 만든다
+    build.py               dist/ 에 Chrome·Firefox 패키지와 zip 을 만든다
   src/
     background.js          컨트롤러: 단계 이동, 단축키, 탭 URL 추적
     shared/
@@ -150,7 +186,7 @@ chrome-stepper-sidebar/
 | `seed.md` | 관리 메뉴의 **예시 다시 넣기** (새 시나리오로 추가됨) |
 | `src/panel/*` | 패널을 닫았다 다시 열기 |
 | `manifest.json`, `src/background.js`, `src/shared/*` | `chrome://extensions` 에서 이 확장의 새로고침 |
-| Firefox 에서 무엇이든 | `python3 scripts/build-firefox.py` 를 다시 돌리고 `about:debugging` 에서 **다시 로드** |
+| Firefox 에서 무엇이든 | `python3 scripts/build.py` 를 다시 돌리고 `about:debugging` 에서 **다시 로드** |
 
 브라우저마다 다른 곳은 두 군데뿐입니다. `src/shared/api.js` 가 API 네임스페이스를 고르고, `src/background.js` 첫머리가 패널 여는 방법(`sidePanel` / `sidebarAction`)을 고릅니다. 나머지 API(`tabs`, `storage.session`, `scripting` 의 `world: "MAIN"`, `commands`)는 두 브라우저가 같습니다.
 
