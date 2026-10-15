@@ -13,11 +13,11 @@
     "sidePanel",
     "tabs",
     "storage",
+    "unlimitedStorage",
     "scripting"
   ],
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "src/background.js",

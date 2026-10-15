@@ -6,6 +6,8 @@
  * 순서·추가·삭제·펼침처럼 구조가 바뀔 때만 render() 로 다시 그린다.
  *
  * 폼과 Markdown 두 탭이 같은 draft 를 고친다. Markdown 탭은 파일 형식(markdown.js)과 같다.
+ *
+ * 처음 열 때 진행 중인 단계(currentId)가 보이도록 목록을 내려 둔다.
  */
 import { confirmTwice, h } from './dom.js'
 import { fromMarkdown, toMarkdown } from '../shared/markdown.js'
@@ -28,10 +30,11 @@ const STEP_NAVIGATION_OPTIONS = [['inherit', '시나리오 기본값'], ...NAVIG
 const MATCH_OPTIONS = Object.entries(MATCH)
 const PATTERN_HINT = { prefix: '비우면 URL 의 경로를 씁니다', regex: '^/datasets/ds-[^/]+$' }
 
-export function createEditView(root, { scenario, send, currentTab, onSave, onCancel }) {
+export function createEditView(root, { scenario, currentId, send, currentTab, onSave, onCancel }) {
   const original = JSON.stringify(scenario)
   let draft = structuredClone(scenario)
   let expandedId = null
+  let revealCurrent = true
   let textMode = false
   let textInitial = ''
   let dragId = null
@@ -46,6 +49,10 @@ export function createEditView(root, { scenario, send, currentTab, onSave, onCan
     const body = textMode ? textEditor() : [settings(), itemList(), addBar()]
     root.replaceChildren(h('div', { class: 'edit-scroll' }, modeSwitch(), body), footer())
     refresh()
+    if (revealCurrent) {
+      revealCurrent = false
+      rows.get(currentId)?.row.scrollIntoView({ block: 'center' })
+    }
   }
 
   // ---- 시나리오 설정 -------------------------------------------------------
@@ -161,14 +168,14 @@ export function createEditView(root, { scenario, send, currentTab, onSave, onCan
       'div',
       { class: 'item__summary', onclick: () => toggle(item.id) },
       handle,
-      h('span', { class: 'item__badge' }, number ?? '§'),
+      h('span', { class: 'item__badge', title: item.id === currentId ? '진행 중인 단계' : null }, number ?? '§'),
       h('span', { class: 'item__text' }, title, sub),
       h('span', { class: 'item__chevron' }, expanded ? '▾' : '▸'),
     )
     const row = h(
       'li',
       {
-        class: `item item--${item.type}${expanded ? ' is-open' : ''}`,
+        class: `item item--${item.type}${expanded ? ' is-open' : ''}${item.id === currentId ? ' is-current' : ''}`,
         ondragover: (event) => dragOver(event, item, row),
         ondragleave: () => row.classList.remove('drop-before', 'drop-after'),
         ondrop: (event) => drop(event, item, row),

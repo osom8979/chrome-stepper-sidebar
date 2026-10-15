@@ -7,8 +7,18 @@ import { createEditView } from './edit-view.js'
 import { createPlayView } from './play-view.js'
 import { api } from '../shared/api.js'
 import { fromMarkdown, toMarkdown } from '../shared/markdown.js'
-import { cloneScenario, httpOrigin, newScenario } from '../shared/scenario.js'
-import { activeScenario, addScenarios, fetchSeed, getLibrary, onStoreChange, saveLibrary } from '../shared/store.js'
+import { cloneScenario, compile, httpOrigin, newScenario, staleStepIds } from '../shared/scenario.js'
+import {
+  activeScenario,
+  addScenarios,
+  fetchSeed,
+  getLibrary,
+  getProgress,
+  isQuietKey,
+  onStoreChange,
+  removeSnapshots,
+  saveLibrary,
+} from '../shared/store.js'
 
 const els = {
   scenario: document.getElementById('scenario'),
@@ -20,16 +30,17 @@ const els = {
 }
 
 const windowId = (await api.windows.getCurrent()).id
-/** background 에 보내고, 실패하면 배너로 알린다. 조용히 삼키면 왜 안 움직이는지 알 수 없다. */
+/** background 에 보내고, 실패하면 배너로 알린다. 조용히 삼키면 왜 안 움직이는지 알 수 없다. 성공하면 true. */
 async function send(message) {
   let response
   try {
     response = await api.runtime.sendMessage({ ...message, windowId })
   } catch (e) {
     notify(['background 에 연결하지 못했습니다. 확장 관리 화면에서 이 확장을 새로고침하세요.', String(e)], 'error')
-    return
+    return false
   }
   if (response && !response.ok) notify([`${message.type} 실패`, response.error], 'error')
+  return Boolean(response?.ok)
 }
 const currentTab = async () => (await api.tabs.query({ active: true, windowId }))[0] ?? null
 
@@ -42,11 +53,13 @@ async function show(next) {
   document.body.dataset.mode = mode
   const scenario = activeScenario(await getLibrary())
   if (mode === 'edit' && scenario) {
-    view = createEditView(els.view, { scenario, send, currentTab, onSave: save, onCancel: () => show('play') })
+    const { currentId } = await getProgress()
+    view = createEditView(els.view, { scenario, currentId, send, currentTab, onSave: save, onCancel: () => show('play') })
   } else {
     mode = document.body.dataset.mode = 'play'
     view = createPlayView(els.view, {
       send,
+      notify,
       setCounter: (text) => (els.counter.textContent = text),
       onEdit: () => show('edit'),
       onNewScenario: () => run('new'),
@@ -58,10 +71,12 @@ async function show(next) {
 
 async function save(scenario) {
   const { scenarios } = await getLibrary()
-  const exists = scenarios.some((candidate) => candidate.id === scenario.id)
+  const previous = scenarios.find((candidate) => candidate.id === scenario.id)
   await saveLibrary({
-    scenarios: exists ? scenarios.map((candidate) => (candidate.id === scenario.id ? scenario : candidate)) : [...scenarios, scenario],
+    scenarios: previous ? scenarios.map((candidate) => (candidate === previous ? scenario : candidate)) : [...scenarios, scenario],
   })
+  // 지웠거나 주소를 바꾼 단계의 스냅샷은 다른 화면이라 버린다.
+  if (previous) await removeSnapshots(scenario.id, staleStepIds(previous, scenario))
   notify('저장했습니다')
   await show('play')
 }
@@ -129,9 +144,18 @@ const ACTIONS = {
     if (!target) return
     const scenarios = library.scenarios.filter((scenario) => scenario.id !== target.id)
     await saveLibrary({ scenarios, activeId: scenarios[0]?.id ?? null })
+    await removeSnapshots(target.id, stepIds(target))
     notify(`삭제했습니다: ${target.title}`)
   },
+  async clearSnapshots() {
+    const scenario = activeScenario(await getLibrary())
+    if (!scenario) return
+    await removeSnapshots(scenario.id, stepIds(scenario))
+    notify('스냅샷을 지웠습니다')
+  },
 }
+
+const stepIds = (scenario) => compile(scenario).steps.map((step) => step.id)
 
 async function run(action) {
   els.menu.open = false
@@ -144,7 +168,7 @@ async function run(action) {
 
 for (const button of els.menu.querySelectorAll('[data-action]')) {
   const action = () => run(button.dataset.action)
-  if (button.dataset.action === 'remove') confirmTwice(button, '한 번 더 누르면 삭제', action)
+  if (button.dataset.confirm) confirmTwice(button, button.dataset.confirm, action)
   else button.addEventListener('click', action)
 }
 
@@ -158,7 +182,8 @@ els.scenario.addEventListener('change', () => saveLibrary({ activeId: els.scenar
 els.edit.addEventListener('click', () => show('edit'))
 els.notice.addEventListener('click', () => (els.notice.hidden = true))
 
-onStoreChange(async (area) => {
+onStoreChange(async (area, changes) => {
+  if (Object.keys(changes).every(isQuietKey)) return
   if (area === 'local') await refreshHeader()
   // 편집 중에는 draft 를 지키려고 다시 그리지 않는다.
   if (mode === 'play') await view.render()

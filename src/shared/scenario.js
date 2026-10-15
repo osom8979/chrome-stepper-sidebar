@@ -224,12 +224,50 @@ function stepMatches(step, url) {
     const path = trimSlash(url.pathname)
     return prefix === '/' || path === prefix || path.startsWith(`${prefix}/`)
   }
-  // 단계에 쿼리나 해시가 없으면 그 부분은 보지 않는다 (목록 화면의 ?page= 등).
+  return samePage(target, url)
+}
+
+// 단계에 쿼리나 해시가 없으면 그 부분은 보지 않는다 (목록 화면의 ?page= 등).
+function samePage(target, url) {
   return (
+    sameSite(target, url) &&
     trimSlash(target.pathname) === trimSlash(url.pathname) &&
     (!target.search || target.search === url.search) &&
     (!target.hash || target.hash === url.hash)
   )
+}
+
+/**
+ * href 가 단계 URL 그 화면인가. 판정 방식과 상관없이 exact 규칙으로 본다.
+ * 자동 스냅샷은 이 화면만 찍는다. 정규식 단계에 걸린 다른 id 의 화면을 찍으면 다음 이동 때 엉뚱한 화면이 덮인다.
+ */
+export function isStepUrl(stepUrl, href) {
+  const target = parseAbsolute(stepUrl)
+  const url = parseAbsolute(href)
+  return Boolean(target && url && samePage(target, url))
+}
+
+/**
+ * 시나리오들이 오가는 http(s) 사이트의 match pattern. content script 를 이 사이트에만 건다.
+ * 포트는 넣지 않는다. Firefox 는 포트가 든 패턴을 받지 않고, 빼면 두 브라우저 모두 모든 포트에 걸린다.
+ */
+export function sitePatterns(scenarios) {
+  const patterns = new Set()
+  for (const scenario of scenarios) {
+    for (const step of compile(scenario).steps) {
+      const url = parseAbsolute(step.url)
+      if (url && /^https?:$/.test(url.protocol)) patterns.add(`${url.protocol}//${url.hostname}/*`)
+    }
+  }
+  return [...patterns]
+}
+
+/** 고친 뒤 없어졌거나 주소가 바뀐 단계 id. 그 단계의 스냅샷은 더는 맞지 않는다. */
+export function staleStepIds(before, after) {
+  const urls = new Map(compile(after).steps.map((step) => [step.id, step.url]))
+  return compile(before)
+    .steps.filter((step) => urls.get(step.id) !== step.url)
+    .map((step) => step.id)
 }
 
 const regexCache = new Map()

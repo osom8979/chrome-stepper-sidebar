@@ -5,16 +5,21 @@
  *   React Router 가 새로고침 없이 이동하게 한다. 실패하면 reload 로 대신한다.
  * - reload: 탭 주소를 바꿔 새로 불러온다.
  * - newtab: 현재 탭 바로 오른쪽에 새 탭을 연다.
+ *
+ * prepare(kind) 는 이동 직전에 불린다. kind 는 같은 문서 안 이동이면 'spa', 새 문서면 'load' 다.
+ * 던지지 않아야 한다.
  */
 import { api } from './api.js'
 
-export async function navigate(tab, url, mode) {
+export async function navigate(tab, url, mode, prepare = async () => {}) {
   if (mode === 'newtab') {
+    await prepare('load')
     await api.tabs.create({ url, windowId: tab.windowId, index: tab.index + 1 })
     return
   }
   const target = new URL(url)
   if (mode === 'spa' && originOf(tab.url) === target.origin && target.origin !== 'null') {
+    await prepare('spa')
     try {
       await api.scripting.executeScript({
         target: { tabId: tab.id },
@@ -27,6 +32,7 @@ export async function navigate(tab, url, mode) {
       console.warn('SPA 이동에 실패해 새로 불러오기로 대신합니다', e)
     }
   }
+  await prepare('load')
   await api.tabs.update(tab.id, { url })
 }
 

@@ -289,17 +289,122 @@ textarea {
   color: var(--muted);
 }
 
+/* 줄 전체가 눌리는 영역이다. 강조와 hover 는 버튼이 아니라 줄에 둔다. */
+.step {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.step:hover {
+  background: var(--hover);
+}
+
 .step__btn {
   display: grid;
+  flex: 1;
   grid-template-columns: 24px 1fr;
   column-gap: 10px;
   align-items: center;
-  width: 100%;
+  min-width: 0;
   padding: 7px 8px;
   border: 0;
   border-radius: 8px;
   background: none;
   text-align: left;
+}
+
+.step .step__btn:hover:not(:disabled) {
+  background: none;
+}
+
+.step__aside {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+.load {
+  min-width: 3.4em;
+  font: 11px ui-monospace, 'SFMono-Regular', monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.load--active::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 청중이 스냅샷을 보고 있는 동안 */
+.load--overlay {
+  color: var(--accent);
+}
+
+.load--timeout {
+  color: var(--warn-fg);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.snap {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 24px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  background: none;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.snap.has-image {
+  border-style: solid;
+}
+
+.snap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* 수동 스냅샷은 자동으로 덮어쓰지 않으므로 구분해 둔다. */
+.snap.is-manual {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+button.snap {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+button.snap:hover:not(:disabled) {
+  background: var(--accent-soft);
+  filter: brightness(1.1);
 }
 
 .step__dot {
@@ -337,7 +442,7 @@ textarea {
   color: var(--on-accent);
 }
 
-.step[data-state='current'] .step__btn {
+.step[data-state='current'] {
   background: var(--accent-soft);
 }
 
@@ -352,7 +457,7 @@ textarea {
 }
 
 /* 시나리오 밖 화면이면 마지막 단계를 점선으로만 남긴다. */
-.off-script .step[data-state='current'] .step__btn {
+.off-script .step[data-state='current'] {
   background: none;
   outline: 1px dashed var(--accent);
   outline-offset: -1px;
@@ -516,6 +621,11 @@ textarea {
 
 .item--section .item__badge {
   background: none;
+}
+
+.item.is-current .item__badge {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .item__text {
